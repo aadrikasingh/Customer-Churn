@@ -27,7 +27,7 @@ Customer churn refers to customers stopping the use of a service, switching to a
 With easy communication and a number of service providers available in the telecommunication industry, almost everyone today has a telecom subscription. Churn is especially important to telecom service providers because it is easy for a subscriber to switch services. 
 
 Factors such as perceived frequent service disruptions, poor customer service experiences, and better offers from other competing carriers may cause a customer to churn (likely to leave).
-
+ 
 ## WHY IS CUSTOMER CHURN IMPORTANT FOR TELECOM INDUSTRIES?
 
 Reducing customer churn is a key business goal of every telecom business. The ability to predict that a particular customer is at a high risk of churning, while there is still time to do something about it, represents a huge additional potential revenue source for every telecom business. 
@@ -63,7 +63,7 @@ The goals of the analysis:
 - perform *exploratory data analysis* : summarize and visualize important characteristics and statistical properties of the dataset 
 - apply *machine learning* : in-depth data analysis, build models that predict the propensity of customers to churn, evaluate the results of models, and eventually, choose the best suitable predictive model to predict customers who may churn 
 
-*P.S. : The complete R code for this analysis can be found [here]()*
+*P.S. : The complete R code for this analysis can be found [here](https://github.com/singhaadrika/Customer-Churn/blob/master/Customer%20Churn%20Analysis.Rmd)*
 
 ## DATASET ACQUISITION
 
