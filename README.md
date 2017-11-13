@@ -2,3 +2,5 @@ Reducing customer churn is a key business goal of every telecom business. The ab
 
 The project will aim to analyze the data for a telecommunication company, and predict in advance, which customers are likely to churn, based on the data analysis.
 
+- Capstone Churn Analysis.Rmd : Final Capstone Report
+- Capstone_Churn_Analysis.html : [Rendered Analysis HTML](http://htmlpreview.github.io/?https://github.com/singhaadrika/Customer-Churn/blob/master/Customer_Churn_Analysis.html)
