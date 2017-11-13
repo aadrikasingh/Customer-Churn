@@ -1,0 +1,597 @@
+---
+title: "Customer Churn Analysis"
+author: "Aadrika Singh"
+date: "November 8, 2017"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    fig_width: 12
+    fig_height: 8
+    fontsize: 10
+---
+
+```{r echo=FALSE}
+setwd("C:/Users/asing/OneDrive - PLC/Documents/Teambase Study/Customer Churn Datasets")
+```
+
+<style>
+body {
+text-align: justify}
+</style>
+
+## WHAT IS CUSTOMER CHURN?
+
+Customer churn refers to customers stopping the use of a service, switching to a competitor service, switching to a lower-tier experience in the service or reducing engagement with the service.
+
+With easy communication and a number of service providers available in the telecommunication industry, almost everyone today has a telecom subscription. Churn is especially important to telecom service providers because it is easy for a subscriber to switch services. 
+
+Factors such as perceived frequent service disruptions, poor customer service experiences, and better offers from other competing carriers may cause a customer to churn (likely to leave).
+
+## WHY IS CUSTOMER CHURN IMPORTANT FOR TELECOM INDUSTRIES?
+
+Reducing customer churn is a key business goal of every telecom business. The ability to predict that a particular customer is at a high risk of churning, while there is still time to do something about it, represents a huge additional potential revenue source for every telecom business. 
+
+Besides the direct loss of revenue that results from a customer abandoning the business, the costs of initially acquiring that customer may not have already been covered by the customer's spending to date. (In other words, acquiring that customer may have actually been a losing investment.)
+
+Furthermore, it is always more difficult and expensive to acquire a new customer than it is to retain a current paying customer.
+
+## HOW TO REDUCE CUSTOMER CHURN?
+
+In order to succeed at retaining customers who would otherwise abandon the business, marketers and retention, experts must be able to :
+
+- predict in advance which customers are going to churn through churn analysis, and
+
+- know which marketing actions will have the greatest retention impact on each particular customer. 
+
+Armed with this knowledge, a large proportion of customer churn can be eliminated. 
+
+## HOW DOES PREDICTING CUSTOMER CHURN HELP?
+
+Churn Prediction model can help analyze the historical data available with the business to find the list of customers which are at high risk to churn. This will help the telecom industry to focus on a specific group rather than using retention strategies on every customer. 
+
+Individualized customer retention is difficult because businesses usually have a big customer base and cannot afford to spend much time and money for it. However, if we could predict in advance which customers are at risk of leaving, we can reduce customer retention efforts by directing them solely toward such customers.
+
+## CUSTOMER CHURN ANALYSIS
+
+The project will aim to analyze the data for a telecommunication company (intended client for the project), and predict in advance, which customers are likely to churn, based on the data analysis. 
+
+The goals of the analysis:
+
+- *acquire* a telecom company's dataset
+- perform *data wrangling* : clean the dataset and get it into a format amenable for analysis
+- perform *exploratory data analysis* : summarize and visualize important characteristics and statistical properties of the dataset 
+- apply *machine learning* : in-depth data analysis, build models that predict the propensity of customers to churn, evaluate the results of models, and eventually, choose the best suitable predictive model to predict customers who may churn 
+
+*P.S. : The complete R code for this analysis can be found [here]()*
+
+## DATASET ACQUISITION
+
+The dataset belongs to one of the sample datasets available in the IBM Watson Analytics community and can be obtained from [here](https://community.watsonanalytics.com/wp-content/uploads/2015/03/WA_Fn-UseC_-Telco-Customer-Churn.csv?cm_mc_uid=83066238020615050520398&cm_mc_sid_50200000=1510468770&cm_mc_sid_52640000=1510468770)  
+
+### DATASET DESCRIPTION
+
+From the dataset description, we know that the dataset includes information about:
+
+- Customers who left within the last month : the column is called Churn
+- Services that each customer has signed up for : phone, multiple lines, internet, online security, online backup, device protection, tech support, and streaming TV and movies
+- Customer account information : how long they've been a customer, contract, payment method, paperless billing, monthly charges, and total charges
+- Demographic info about customers : gender, age range, and if they have partners and dependents
+```{r results='hide', message=FALSE, warning=FALSE, echo=FALSE}
+## Load all required packages
+library(ggplot2) # Plot visuals
+library(ggthemes) # Visual themes
+library(scales) # To show percentages on plot
+library(ggmosaic) # Mosaic Plot
+library(caret) # One-hot encoding / Data Splitting
+library(data.table) # Data Table
+library(corrplot) # Correlation Plot
+library(DMwR) # SMOTE
+library(randomForest) #Random Forest
+library(xgboost) # XGBoost
+library(Matrix) # Sparse Matrix
+```
+
+For analysis with R, the telecom company's training dataset is imported as a data frame. Looking at the structure of the dataset :
+```{r echo=FALSE}
+# Reading the dataset
+telco <- read.csv("Churn - IBM.csv", header=TRUE)
+
+# Structure of the dataset
+str(telco)
+```
+Looking at the first 6 rows of the columns:
+```{r echo=FALSE}
+# First 6 rows of the dataset
+head(telco)
+```
+**<span style="color:darkblue">Observation</span>**: There are **7043** observations of **21** variables in the dataset, from which selected input features will be used to predict the outcome variable **churn**.
+
+## DATA WRANGLING
+
+The first step in analyzing data is to clean the dataset and get it into a format amenable for analysis.
+
+**<span style="color:darkred">Action</span>**: Based on the observations from above, we convert CustomerID and SeniorCitizen fields, to appropriate data types. Also, we list out how many missing values each column in the dataset has:
+```{r echo=FALSE}
+# Convert some dataset columns into appropriate data types
+telco$customerID <- as.character(telco$customerID)
+telco$SeniorCitizen <- factor(telco$SeniorCitizen, levels=c('0', '1'), labels=c('No', 'Yes'))
+
+# List out the number of missing values in each column
+sapply(telco, function(x) sum(is.na(x)))
+```
+**<span style="color:darkblue">Observation</span>**: It is observed that only **TotalCharge** column has **11** missing values.
+
+**<span style="color:darkred">Action</span>**: 
+
+Analyze these missing values in a deeper sense, and find the rows that have missing values for TotalCharge:
+```{r echo=FALSE}
+# Finding the rows that have missing values for TotalCharge
+which(is.na(telco$TotalCharges))
+```
+Find the tenure for these customers:
+```{r echo=FALSE}
+# Find the tenure for these customers
+telco$tenure[which(is.na(telco$TotalCharges))]
+```
+Find the TotalCharge for customers with 0 as tenure:
+```{r echo=FALSE}
+# Find the TotalCharge for customers with 0 as tenure
+telco$TotalCharges[which(telco$tenure == 0)]
+```
+**<span style="color:darkblue">Observation</span>**: Thus, it is observed that **all** the customers with **0 tenure period** have **missing TotalCharge** values. 
+
+**<span style="color:darkred">Action</span>**: Thus, the NA values for TotalCharge will be replaced by 0, and it's ensured that no columns have missing values anymore. Listing out the columns that might have missing values:
+```{r echo=FALSE}
+# Replace NA values in TotalCharge columns with zero
+telco$TotalCharges <- ifelse(is.na(telco$TotalCharges), 0, telco$TotalCharges)
+
+# Check that no columns have missing values anymore
+names(telco[, sapply(telco, function(x) sum(is.na(x))) != 0])
+```
+**<span style="color:darkblue">Observation</span>**: All the missing observations have been substituted and the data is now suitable for further analysis.
+
+## EXPLORATORY DATA ANALYSIS
+
+The next step in data analysis, which follows data wrangling, is exploratory data analysis, which refers to summarizing and visualizing important characteristics and statistical properties of the dataset.
+
+Observing the distribution of customers between the classes *churned* and *not churned* :
+
+### Distribution of people who churned
+```{r echo=FALSE}
+## Distribution of people who churned
+ggplot(aes(x = Churn), 
+       data = telco) +
+geom_bar(colour = c("#336600", "#990000"), 
+         aes(y = ..count../ sum(..count..)), 
+         stat = "count", 
+         fill = c("#669933","#CC3333"), 
+         size = 1.5) +
+ggtitle("Churn Analysis") +
+theme_fivethirtyeight() +
+xlab('Churn') +
+ylab('Percent') +
+theme(axis.title=element_text(size=12), 
+      legend.title = element_blank()) +
+geom_text(aes(label = round((..count../ sum(..count..))*100,2), 
+              y= ..prop..), 
+          stat = "count") +
+scale_y_continuous(labels=percent) 
+```
+**<span style="color:darkblue">Observation</span>**: As observed from the histogram, the percentage of people churning is much lower than the percentage of people not churning. This also implies, that the dataset is highly imbalanced.
+
+### Relationship between whether the customer has dependents and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between whether the customer has dependents and whether the customer churned or not
+ggplot() + 
+    geom_bar(data = telco,
+             aes(x = Churn, fill = Dependents),
+             position = "fill", colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Dependents") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  ylab('Customers') +
+  theme(axis.title=element_text(size=12))
+```
+**<span style="color:darkblue">Observation</span>**: From the above bar chart, it can be inferred that, given a customer churns, it is most likely that the customer doesn't have dependents.
+
+### Relationship between payment method used by the customer and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between payment method used by the customer and whether the customer churned or not
+ggplot(data = telco) +
+  geom_mosaic(aes(x = product(Churn), fill = PaymentMethod), colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Payment Method") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  theme(axis.title=element_text(size=12),
+        legend.title = element_blank())
+```
+**<span style="color:darkblue">Observation</span>**: From the above mosaic plot, it can be inferred that, given a customer churns, it is most likely that the customer used **electronic check** as a method of payment.<span style="text-decoration:underline">This could imply that the process of payment using electronic check may not be as convenient as other payment methods, and may need to be improved.</span>
+
+### Relationship between tenure (in months) and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between tenure (in months) and whether the customer churned or not
+fun_mean <- function(x){
+  return(data.frame(y=mean(x),label=round(mean(x,na.rm=T),2)))}
+
+ggplot(aes(x = Churn, y = tenure, fill = Churn), data = telco) +
+  geom_boxplot() + 
+  xlab("Churn") +
+  ylab("Tenure") +
+  ggtitle("Churn Analysis by Tenure") + 
+  theme_fivethirtyeight() +
+  theme(legend.position = "none", axis.title=element_text(size=12)) +
+  stat_summary(fun.y = mean, geom="point",colour="darkred", size=3) +
+  stat_summary(fun.data = fun_mean, geom="text", vjust=-0.7)
+```
+**<span style="color:darkblue">Observation</span>**: From the above boxplot, it can be inferred that, the average tenure period of customers who churn is much lower(almost half) than the average tenure period of customers who don't churn. <span style="text-decoration:underline">This could imply that most of the customers who churn are new customers, with an average tenure period of 18 months.</span> However, there are a few outliers, where the customers churned, inspite of a longer tenure period (more than 60 months).
+
+### Relationship between type of contract the customer has and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between type of contract the customer has and whether the customer churned or not
+ggplot(data = telco) +
+  geom_mosaic(aes(x = product(Churn), fill = Contract), colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Contract type") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  theme(axis.title=element_text(size=12),
+        legend.title = element_blank())
+```
+**<span style="color:darkblue">Observation</span>**: From the above mosaic plot, it can be inferred that, given a customer churns, it is most likely that the customer was tied with the company on a *month-to-month* based contract. <span style="text-decoration:underline">This is expected, as it is easier for a customer to churn if he/she is not tied with a long term contract.</span> Thus, the customers tied via a two year contract churn the least, followed by customers with one-year contract, and eventually followed by month-to-month contracts.
+
+### Relationship between whether the customers used paperless billing and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between whether the customers used paperless billing and whether the customer churned or not
+ggplot() + 
+    geom_bar(data = telco,
+             aes(x = Churn, fill = PaperlessBilling),
+             position = "fill", colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Paperless Billing") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  ylab('Customers') +
+  theme(axis.title=element_text(size=12))
+```
+**<span style="color:darkblue">Observation</span>**: From the above bar chart, it can be inferred that, given a customer churns, it is most likely that the customer used **Paperless Bills**.<span style="text-decoration:underline"> This could mean that the customers may have problems with the reception/payment of these paperless bills.</span>
+
+### Relationship between the type of internet service provided to the customer and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between the type of internet service provided to the customer and whether the customer churned or not
+ggplot(data = telco) +
+  geom_mosaic(aes(x = product(Churn), fill = InternetService), colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Internet Service Type") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  theme(axis.title=element_text(size=12),
+        legend.title = element_blank())
+```
+**<span style="color:darkblue">Observation</span>**: From the above mosaic plot, it can be inferred that, given a customer churns, it is most likely that the customer used **Fiber Optic** for internet service.<span style="text-decoration:underline"> This could imply that most of the customers are not satisfied with the quality of internet service provided through fiber optics.</span>
+
+### Relationship between gender of the customers and whether the customer churned or not
+```{r echo=FALSE}
+## Relationship between gender of the customers and whether the customer churned or not
+ggplot() + 
+    geom_bar(data = telco,
+             aes(x = Churn, fill = gender),
+             position = "fill", colour = "black", size = 1) +
+  ggtitle("Churn Analysis by Gender") +
+  theme_fivethirtyeight() +
+  xlab('Churn') +
+  ylab('Customers') +
+  theme(axis.title=element_text(size=12))
+```
+**<span style="color:darkblue">Observation</span>**: There seems to be no link between customers churning and the gender of the customers.
+
+## MACHINE LEARNING
+
+The final step is to apply *machine learning*, which involves an in-depth data analysis. This step involves building models that predict the propensity of customers to churn, evaluating the results of models, and eventually, choosing the best suitable predictive model to predict customers who may churn.
+
+As the problem aims to predict a binary variable **churn** (Yes/No), a classification model should be applied. Since the model will learn from a training set and predict for a test dataset thereafter, it is a supervised model.
+
+### DATA PREPROCESSING
+
+#### ONE-HOT ENCODING
+
+**<span style="color:darkred">Action</span>**: **One hot encoding** is a process by which each factor for each categorical variable is converted into a binary variable, so that it could be provided to ML algorithms to do a better job in prediction. Thus, one-hot encoding is done on the dataset to create a data frame "OHE", only the necessary variables are kept, and the structure of the dataset is observed:
+```{r echo=FALSE}
+# One-hot encoding on the dataset to create a data table OHE
+OHE <- data.table(customerID=telco$customerID, predict(dummyVars(customerID ~ ., telco, fullRank = F),telco))
+
+### Keep the necessary variables and rename ###
+
+# Gender
+OHE$gender.Female <- NULL
+setnames(OHE, "gender.Male", "Gender")
+
+# Senior Citizen
+OHE$SeniorCitizen.No <- NULL
+setnames(OHE, "SeniorCitizen.Yes", "SeniorCitizen")
+
+# Partner
+OHE$Partner.No <- NULL
+setnames(OHE, "Partner.Yes", "Partner")
+
+# Dependents
+OHE$Dependents.No <- NULL
+setnames(OHE, "Dependents.Yes", "Dependents")
+
+# Tenure
+setnames(OHE, "tenure", "Tenure")
+
+# Phone Service
+OHE$PhoneService.No <- NULL
+setnames(OHE, "PhoneService.Yes", "PhoneService")
+
+# Multiple Lines
+OHE$`MultipleLines.No phone service`<- NULL
+OHE$`MultipleLines.No`<- NULL
+setnames(OHE, "MultipleLines.Yes", "MultipleLines")
+
+# Internet Service
+OHE$InternetService.No <- as.numeric(!OHE$InternetService.No)
+setnames(OHE, "InternetService.No", "InternetService")
+setnames(OHE, "InternetService.Fiber optic", "IS.FiberOptic")
+setnames(OHE, "InternetService.DSL", "IS.DSL")
+
+# Online Security, Online Backup, Device Protection, Tech Support, Streaming TV, Streaming Movies
+OHE$`OnlineBackup.No internet service` <- NULL
+OHE$`OnlineBackup.No` <- NULL
+setnames(OHE, "OnlineBackup.Yes", "OnlineBackup")
+OHE$`OnlineSecurity.No internet service` <- NULL
+OHE$`OnlineSecurity.No` <- NULL
+setnames(OHE, "OnlineSecurity.Yes", "OnlineSecurity")
+OHE$`DeviceProtection.No internet service` <- NULL
+OHE$`DeviceProtection.No` <- NULL
+setnames(OHE, "DeviceProtection.Yes", "DeviceProtection")
+OHE$`TechSupport.No internet service` <- NULL
+OHE$`TechSupport.No` <- NULL
+setnames(OHE, "TechSupport.Yes", "TechSupport")
+OHE$`StreamingTV.No internet service` <- NULL
+OHE$`StreamingTV.No` <- NULL
+setnames(OHE, "StreamingTV.Yes", "StreamingTV")
+OHE$`StreamingMovies.No internet service` <- NULL
+OHE$`StreamingMovies.No` <- NULL
+setnames(OHE, "StreamingMovies.Yes", "StreamingMovies")
+
+# Contract
+OHE$`Contract.Two year` <- NULL
+setnames(OHE, "Contract.Month-to-month", "Contract.Month_to_month")
+setnames(OHE, "Contract.One year", "Contract.OneYear")
+
+# Paperless Billing
+OHE$PaperlessBilling.No <- NULL
+setnames(OHE, "PaperlessBilling.Yes", "PaperlessBilling")
+
+# Payment Method
+OHE$`PaymentMethod.Bank transfer (automatic)` <- NULL
+setnames(OHE, "PaymentMethod.Credit card (automatic)", "CreditCard")
+setnames(OHE, "PaymentMethod.Electronic check", "ElectronicCheck")
+setnames(OHE, "PaymentMethod.Mailed check", "MailedCheck")
+
+# Churn
+OHE$Churn.No <- NULL
+setnames(OHE, "Churn.Yes", "Churn")
+
+# Remove the customerID variable as it doesn't help with the analysis
+OHE$customerID <- NULL
+
+# Rename the variables properly
+colnames (OHE) <- make.names(colnames(OHE))
+
+# Structure of the dataframe
+str(OHE)
+```
+
+How to read the data frame:
+
+- **Gender**: 0 = Female, 1 = Male
+
+- **Senior Citizen**: 0 = No, 1 = Yes
+
+- **Partner**: 0 = No, 1 = Yes
+
+- **Dependents**: 0 = No, 1 = Yes
+
+- **Phone Service**: 0 = No, 1 = Yes
+
+- **MultipleLines** : 0 = No, 1 = Yes
+
+- **Internet Service**: 0 = No, 1 = Yes
+
+- **IS.DSL**: 0 = No, 1 = Yes
+
+- **IS.FiberOptic**: 0 = No, 1 = Yes
+
+- **OnlineBackup** : 0 = No, 1 = Yes
+
+- **OnlineSecurity** : 0 = No, 1 = Yes
+
+- **DeviceProtection** : 0 = No, 1 = Yes
+
+- **TechSupport** : 0 = No, 1 = Yes
+
+- **StreamingTV** : 0 = No, 1 = Yes
+
+- **StreamingMovies** : 0 = No, 1 = Yes
+
+- **Contract.Month_to_month and Contract.OneYear** : Both 0 = "Two Year Contract"
+
+- **PaperlessBilling** : 0 = No, 1 = Yes
+
+- **CreditCard, ElectronicCheck, MailedCheck** : All 0 = "Bank transfer (automatic)"
+
+- **Churn**: 0 = No, 1 = Yes
+
+#### MULTI-COLLINEARITY REMOVAL
+
+Presence of multicollinearity (predictors that are correlated with other predictors in the model, leading to unreliable and unstable estimates of regression coefficients) can degrade the quality of the model. **Thus, the following steps will help to reduce multi-collinearity**.
+
+**<span style="color:darkred">Action</span>**: Plotting the correlations among all numerical variables:
+
+```{r echo=FALSE}
+# Correlation matrix for all numerical variables
+m <- cor(OHE[,1:25])
+
+# Correlation plot among the numerical variables
+corrplot(m, type = "upper", method = "square", outline = T, tl.col = "indianred4", tl.cex = 0.8, cl.cex = 1.5, diag=FALSE)
+```
+
+#### DATA SPLITTING
+
+**<span style="color:darkred">Action</span>**: Since this is a supervised learning method, the entire dataset will be **split** into a training set (train) and a testing set (test) in a **7:3** ratio, such that the distribution of the *churn* variable remains the same as before, for both of the resulting datasets. The training set will be used to train the model, and the testing set will be used to make predictions, test actual values against predicted values, compare models, and choose the best model on the basis of metrics used for evaluation.
+```{r echo=FALSE}
+# Set seed
+set.seed(1421)
+
+# Create Partition Index
+trainIndex <- createDataPartition(OHE$Churn, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+# Create training set
+train <- OHE[ trainIndex,]
+
+# Convert the datatypes in train dataset into proper formats
+for(i in colnames(train)[c(1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,25)]){
+ train[[i]] <- as.factor(train[[i]])
+}
+
+# Create testing set
+test  <- OHE[-trainIndex,]
+
+# Convert the datatypes in test dataset into proper formats
+for(i in colnames(test)[c(1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,25)]){
+ test[[i]] <- as.factor(test[[i]])
+}
+```
+
+#### SYNTHETIC MINORITY OVERSAMPLING TECHNIQUE
+
+**<span style="color:darkred">Action</span>**: As was observed from the exploratory data analysis, the dataset is highly **imbalanced**. Therefore, **Synthetic Minority Over-Sampling Technique (SMOTE)** will be used, to oversample (increase the number of) minority/ under-represented class, and undersample the majority class, so as to strike a balance between the two classes in the training dataset.
+```{r echo=FALSE}
+# Set seed
+set.seed(144)
+
+# Copy train as TrainDF
+trainDF <- data.table(train, keep.rownames = F)
+
+# SMOTE
+trainDF <- SMOTE(Churn~ .,trainDF, perc.over = 297, perc.under = 147)
+
+# Convert the datatypes into proper formats
+trainDF$Tenure <- round(trainDF$Tenure, 0)
+trainDF$MonthlyCharges <- round(trainDF$MonthlyCharges, 1)
+trainDF$TotalCharges <- round(trainDF$TotalCharges, 1)
+
+# Convert trainDF into a dataframe
+trainDF <- as.data.frame(trainDF)
+
+## Distribution of people who churned
+ggplot(aes(x = Churn), 
+       data = trainDF) +
+geom_bar(colour = c("#990000", "#336600"), 
+         aes(y = ..count../ sum(..count..)), 
+         stat = "count", 
+         fill = c("#CC3333", "#669933"), 
+         size = 1.5) +
+ggtitle("Churn Analysis") +
+theme_fivethirtyeight() +
+xlab('Churn') +
+ylab('Percent') +
+theme(axis.title=element_text(size=12), 
+      legend.title = element_blank()) +
+geom_text(aes(label = round((..count../ sum(..count..))*100,2), 
+              y= ..prop..), 
+          stat = "count") +
+scale_y_continuous(labels=percent)
+```
+
+### PREDICTIVE MODELS
+
+Several predictive models will be fit and compared against one another on the basis of appropriate metrics.
+
+#### XGBOOST MODEL
+
+XGBoost is an implementation of gradient boosted decision trees designed for speed and performance. Gradient boosting involves three elements:
+
+* a loss function to be optimized
+
+* a weak learner to make predictions, and
+
+* an additive model to add weak learners to minimize the loss function.
+
+**<span style="color:darkred">Action</span>**: Create a XGBoost model, and plot feature importance plot to see the 15 most important features, as per the model:
+
+```{r echo=FALSE, results='hide'}
+# Create a sparse matrix
+sparse_matrix <- sparse.model.matrix(Churn~.-1, data = trainDF)
+
+# Create a vector that contains only the rows depicting the customer has churned
+output_vector = trainDF[,"Churn"] == "1"
+
+# Create a XGBoost model
+XGBmod <- xgboost(data = sparse_matrix, output_vector, nrounds = 10, objective = "binary:logistic")
+
+# Look at feature importance
+importance <- xgb.importance(feature_names = colnames(sparse_matrix), model = XGBmod)
+```
+```{r echo=FALSE}
+# Feature importance plot
+xgb.plot.importance(importance_matrix = head(importance, 15))
+```
+**<span style="color:darkred">Action</span>**: Use the XGBoost model for prediction on the test set, store the result in a confusion matrix, and view the resulting confusion matrix: 
+```{r echo=FALSE}
+# Prediction on test set and storing the result in a confusion matrix
+XGBPredMat <- as.matrix(table(test$Churn, as.numeric(predict(XGBmod, xgb.DMatrix(sparse.model.matrix(Churn~.-1, data = test))))>0.4))
+
+# Renaming the column and row names
+colnames(XGBPredMat) <- c("Will Not Churn", "Will Churn")
+rownames(XGBPredMat) <- c("Didn't Churn", "Churned")
+
+# Confusion Matrix
+XGBPredMat
+```
+
+#### RANDOM FOREST
+
+Random forests are ensemble learning methods which create multiple decision trees at the time of training, and outputs the class that is the mode of the classes, for classification models.
+
+#### RANDOM FOREST MODEL 1
+
+**<span style="color:darkred">Action</span>**: Fit the random forest model:
+```{r echo=FALSE, warning=FALSE}
+# Specify the type of resampling
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 5,
+                           repeats = 3,
+                           summaryFunction = prSummary,
+                           classProbs = TRUE)
+
+# Set Seed
+set.seed(825)
+
+# Fit the random forest model with some of the top variables, as observed from the plot
+levels(trainDF$Churn) <- make.names(levels(factor(trainDF$Churn)))
+rfFit1 <- train(Churn~.,
+                data = trainDF,
+                method = "rf",
+                preProcess = c("pca"),
+                trControl = fitControl,
+                metric = "F"
+                )
+
+# RF Model 1
+rfFit1
+```
+**<span style="color:darkred">Action</span>**: Use the Random Forest model for prediction on the test set, store the result in a confusion matrix, and view the resulting confusion matrix: 
+```{r echo=FALSE}
+# Prediction on test set and storing the result in a confusion matrix
+RFPredMat1 <- as.matrix(table(test$Churn, predict(object = rfFit1, test)))
+
+# Renaming the column and row names
+colnames(RFPredMat1) <- c("Will Not Churn", "Will Churn")
+rownames(RFPredMat1) <- c("Didn't Churn", "Churned")
+
+# Confusion Matrix
+RFPredMat1 
+```
